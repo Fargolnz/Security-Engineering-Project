@@ -1,6 +1,7 @@
 # Insecure Bot
 import os
 import base64
+from dotenv import load_dotenv
 from telegram import (
     Update,
     InlineKeyboardButton,
@@ -15,7 +16,11 @@ from telegram.ext import (
     filters
 )
 
-TOKEN = "8377920871:AAEbbr8GsOHfrwXhymXQdfSKUmENWCZg2M8"
+load_dotenv()
+TOKEN = os.getenv("BOT_TOKEN")
+
+if not TOKEN:
+    raise RuntimeError("BOT_TOKEN not set")
 
 MESSAGE_TOKENS = {}
 
