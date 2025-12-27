@@ -1,5 +1,6 @@
 import os
 import base64
+from dotenv import load_dotenv
 from telegram import (
     Update,
     InlineKeyboardButton,
@@ -21,10 +22,10 @@ SECRET_SALT = os.getenv("SECRET_SALT")
 if not SECRET_SALT:
     raise RuntimeError("SECRET_SALT not set")
 
-TOKEN = os.getenv("BOT_TOKEN")
+TOKEN = os.getenv("BOT_S_TOKEN")
 
 if not TOKEN:
-    raise RuntimeError("BOT_TOKEN not set")
+    raise RuntimeError("BOT_S_TOKEN not set")
 
 MESSAGE_TOKENS = {}
 
