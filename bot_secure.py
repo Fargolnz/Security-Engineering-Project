@@ -14,27 +14,32 @@ from telegram.ext import (
     filters
 )
 
-# --- بخش امنیت: تنظیمات رمزنگاری متقارن (Symmetric XOR) ---
-# یک کلید عددی بزرگ و مخفی برای عملیات XOR (قلب امنیت ربات شما)
-SECRET_SALT = 874591236
+load_dotenv()
+ 
+SECRET_SALT = os.getenv("SECRET_SALT")
 
-TOKEN = "8325672504:AAFD3CkDs0gJ7PYA6zqF6roslsKH7EVaDec"
+if not SECRET_SALT:
+    raise RuntimeError("SECRET_SALT not set")
 
-# دیکشنری برای نگهداری توکن‌ها
+TOKEN = os.getenv("BOT_TOKEN")
+
+if not TOKEN:
+    raise RuntimeError("BOT_TOKEN not set")
+
 MESSAGE_TOKENS = {}
 
-# تابع امن سازی آیدی (Encryption)
+# ---------- Encrypt User ID ------------
 def secure_encrypt(user_id: int) -> str:
-    # عملیات XOR آیدی را به عددی کاملاً متفاوت تبدیل می‌کند
+    # XOR the user ID with the secret salt
     encrypted_numeric = user_id ^ SECRET_SALT
-    # تبدیل به Base64 برای کوتاه ماندن و قابلیت جابجایی در دکمه
+    # Encode the numeric value as a base64 string
     return base64.b64encode(str(encrypted_numeric).encode()).decode()
 
-# تابع بازگشایی آیدی (Decryption)
+# --------- Decrypt User ID ----------
 def secure_decrypt(token: str) -> int:
     try:
         decoded_bytes = base64.b64decode(token.encode()).decode()
-        # دوباره XOR کردن با همان کلید، آیدی اصلی را برمی‌گرداند
+        # XOR the decoded numeric value with the secret salt
         return int(decoded_bytes) ^ SECRET_SALT
     except Exception:
         return None
@@ -62,16 +67,16 @@ async def text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     await update.message.reply_text("❗ ابتدا باید از لینک اختصاصی استفاده کنید.")
 
-# ---------- Send Anonymous Message (نسخه امن و بدون ارور) ----------
+# ---------- Send Anonymous Message (XOR Cipher) ----------
 async def anonymous_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     sender = update.effective_user
     text = update.message.text
     receiver_id = context.user_data.get("receiver_id")
 
-    # استفاده از متد رمزنگاری سبک برای جلوگیری از ارور Button_data_invalid
+    # Token
     encrypted_token = secure_encrypt(sender.id)
 
-    # ذخیره در دیکشنری
+    # Save token
     MESSAGE_TOKENS[encrypted_token] = sender.id
 
     keyboard = InlineKeyboardMarkup([
@@ -92,7 +97,7 @@ async def reply_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     token = query.data.split(":")[1]
 
-    # بررسی اعتبار توکن با رمزگشایی
+    # Check token
     real_id = secure_decrypt(token)
     if real_id:
         context.user_data["reply_token"] = token
