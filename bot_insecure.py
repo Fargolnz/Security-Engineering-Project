@@ -75,7 +75,7 @@ async def anonymous_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
     keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("↩️ Reply", callback_data=f"reply:{token}")]
+        [InlineKeyboardButton("↩️ پاسخ", callback_data=f"reply:{token}")]
     ])
 
     await context.bot.send_message(
