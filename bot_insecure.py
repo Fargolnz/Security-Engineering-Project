@@ -41,8 +41,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_id = update.effective_user.id
         await update.message.reply_text(
             "👤 شما به‌عنوان گیرنده ثبت شدی\n"
-            "🔗 لینک اختصاصی شما:\n"
-            f"https://t.me/VerySecureAnonymous_Bot?start={user_id}"
+            "🔗 لینک اختصاصی شما برای دریافت پیام ناشناس:\n"
+            f"https://t.me/MikeyAnonymous_Bot?start={user_id}"
         )
 
 # ---------- Text Router ----------
@@ -111,7 +111,7 @@ async def send_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await context.bot.send_message(
         chat_id=sender_id,
-        text=f"📨 پاسخ به پیام ناشناس:\n\n{update.message.text}"
+        text=f"📨 یک پاسخ جدید دریافت کردی:\n\n{update.message.text}"
     )
 
     await update.message.reply_text("✅ پاسخ ارسال شد.")
