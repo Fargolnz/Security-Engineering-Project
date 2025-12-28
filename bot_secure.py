@@ -1,35 +1,53 @@
-
-TOKEN = "8422703460:AAEhocjOMyd3E2deN2UpFRW6CPNpdMd03o0"
+# Secure Bot
 import os
 import base64
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, CallbackQueryHandler, ContextTypes, filters
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from dotenv import load_dotenv
+from cryptography.hazmat.primitives.ciphers import (
+    Cipher,
+    algorithms,
+    modes
+)
+from telegram import (
+    Update,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup
+)
+from telegram.ext import (
+    ApplicationBuilder,
+    CommandHandler,
+    MessageHandler,
+    CallbackQueryHandler,
+    ContextTypes,
+    filters
+)
 
-# --- تنظیمات امنیت (تیم فنی و امنیت) ---
-TOKEN = "8422703460:AAEhocjOMyd3E2deN2UpFRW6CPNpdMd03o0"
+load_dotenv()
 
-# کلید ۳۲ بایتی ثابت (قلب امنیت ربات - این را هرگز لو ندهید)
-AES_KEY = b'this_is_a_32_byte_secret_key_!!!'
-# IV ثابت برای فشرده‌سازی خروجی جهت عبور از محدودیت ۶۴ بایتی تلگرام
-STATIC_IV = b'static_16_byteiv'
+TOKEN = os.getenv("BOT_S_TOKEN")
+if not TOKEN:
+    raise RuntimeError("BOT_S_TOKEN not set")
 
+AES_KEY = os.getenv("AES_KEY").encode()
+if not AES_KEY:
+    raise RuntimeError("AES_KEY not set")
 
-# --- توابع رمزنگاری پیشرفته (AES-CTR) ---
+STATIC_IV = os.getenv("STATIC_IV").encode()
+if not STATIC_IV:
+    raise RuntimeError("STATIC_IV not set")
+
+# ------- AES Encryption -------
 def encrypt_id(user_id: int) -> str:
-    """تبدیل آیدی به توکن کوتاه و امن AES"""
     data = str(user_id).encode()
     cipher = Cipher(algorithms.AES(AES_KEY), modes.CTR(STATIC_IV))
     encryptor = cipher.encryptor()
     ciphertext = encryptor.update(data) + encryptor.finalize()
-    # استفاده از URL-safe Base64 و حذف Padding برای کوتاهی نهایی
+    # Add padding and convert to base64
     return base64.urlsafe_b64encode(ciphertext).decode().rstrip('=')
 
-
+# -------- AES Decryption -------
 def decrypt_id(token: str) -> int:
-    """بازگرداندن توکن به آیدی اصلی"""
     try:
-        # بازسازی Padding حذف شده برای دیکود کردن
+        # Remove padding
         missing_padding = len(token) % 4
         if missing_padding:
             token += '=' * (4 - missing_padding)
@@ -42,25 +60,28 @@ def decrypt_id(token: str) -> int:
     except Exception:
         return None
 
-
-# ---------- هندلر Start ----------
+# ---------- Start ----------
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     args = context.args
     if args:
-        # رمزگشایی آیدی از لینک برای امنیت دوطرفه
+        # Decrypt target_id
         target_id = decrypt_id(args[0])
         if target_id:
             context.user_data["receiver_id"] = target_id
-            await update.message.reply_text("🕵️ وارد فضای امن شدی.\nپیام ناشناست رو بنویس:")
+            await update.message.reply_text(
+            "📨 الان در حال ارسال پیام ناشناس هستی.\n"
+            "پیامت رو ارسال کن:"
+        )
         else:
             await update.message.reply_text("⚠️ لینک نامعتبر یا منقضی شده است.")
     else:
         user_id = update.effective_user.id
-        # رمزنگاری آیدی یوزر در لینک خودش (امنیت در لایه شروع)
+        # Encrypt user_id
         secure_link_id = encrypt_id(user_id)
         await update.message.reply_text(
-            "👤 شما به‌عنوان گیرنده ثبت شدی.\n🔗 لینک اختصاصی و امن شما:\n"
-            f"https://t.me/{context.bot.username}?start={secure_link_id}"
+            "👤 شما به‌عنوان گیرنده ثبت شدی\n"
+            "🔗 لینک اختصاصی شما برای دریافت پیام ناشناس:\n"
+            f"https://t.me/DonnieAnonymous_Bot?start={secure_link_id}"
         )
 
 
@@ -75,49 +96,57 @@ async def text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("❗ ابتدا باید از لینک اختصاصی یک نفر استفاده کنید.")
 
 
-# ---------- ارسال پیام ناشناس (با توکن AES کوتاه) ----------
+
+# --------- Anonymous Message ----------
 async def anonymous_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     sender_id = update.effective_user.id
     text = update.message.text
     receiver_id = context.user_data.get("receiver_id")
 
-    # تولید توکن رمزنگاری شده از آیدی فرستنده برای دکمه ریپلای
+    # Token Encryption
     encrypted_token = encrypt_id(sender_id)
 
-    # دکمه پاسخ با دیتای رمزنگاری شده (زیر ۶۴ کاراکتر)
+    # Reply Button
     keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("↩️ پاسخ ناشناس", callback_data=f"re:{encrypted_token}")]
+        [InlineKeyboardButton("↩️ پاسخ", callback_data=f"re:{encrypted_token}")]
     ])
 
     try:
         await context.bot.send_message(
             chat_id=receiver_id,
-            text=f"📩 پیام ناشناس جدید:\n\n{text}",
+            text=(
+            "📩 پیام ناشناس جدید:\n\n"
+            f"{text}\n\n"
+            "برای پاسخ روی دکمه زیر کلیک کن."
+            ),
             reply_markup=keyboard
         )
-        await update.message.reply_text("✅ پیام شما با امنیت AES ارسال شد.")
-        context.user_data.clear()  # پاک کردن وضعیت برای پیام‌های بعدی
+        await update.message.reply_text("✅ پیام ناشناس ارسال شد.")
+        context.user_data.clear()  # Clear receiver_id
     except Exception:
         await update.message.reply_text("❌ خطا در ارسال. احتمالا توسط گیرنده بلاک شده‌اید.")
 
 
-# ---------- دکمه ریپلای ----------
+# ---------- Reply Button ----------
 async def reply_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
     token = query.data.split(":")[1]
-    # رمزگشایی آیدی برای اطمینان از صحت توکن
+    # Token Decryption
     real_sender_id = decrypt_id(token)
 
     if real_sender_id:
         context.user_data["reply_target"] = real_sender_id
-        await query.message.reply_text("✏️ در حال پاسخ دادن هستی...\nپیامت رو بفرست:")
+        await query.message.reply_text(
+        "✏️ الان در حال پاسخ دادن به پیام ناشناس هستی.\n"
+        "پیام خودت رو ارسال کن:"
+    )
     else:
         await query.message.reply_text("⚠️ خطای امنیتی: پیام دستکاری شده است.")
 
 
-# ---------- ارسال پاسخ ----------
+# ---------- Send Reply ----------
 async def send_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
     target_id = context.user_data.get("reply_target")
 
@@ -133,7 +162,7 @@ async def send_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.clear()
 
 
-# ---------- اجرا ----------
+# ---------- Main ----------
 def main():
     app = ApplicationBuilder().token(TOKEN).build()
 
@@ -141,7 +170,7 @@ def main():
     app.add_handler(CallbackQueryHandler(reply_button))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_router))
 
-    print("🛡️ Secure AES Bot is Running...")
+    print("🛡️ Secure Bot is running...")
     app.run_polling()
 
 
